@@ -1,20 +1,55 @@
 # Animal Shelter Operations & Stay Analytics ELT
 
-An end-to-end analytics engineering pipeline built with **dbt Core**, **Google BigQuery**, and **SQL** to transform ~80,000 raw animal shelter intake and outcome records into a governed, tested dimensional warehouse.
+An end-to-end analytics engineering pipeline built with **dbt Core**, **Google BigQuery**, and **SQL** to transform ~80,000 raw animal shelter intake and outcome records into a governed, tested Kimball star schema.
 
 ---
 
 ## Project Overview
 
-Municipal animal shelter datasets often arrive as wide, flat exports containing duplicate stay records, inconsistent string formatting, mixed-breed text fields, and open stays without outcomes. This project applies modern analytics engineering best practices—medallion architecture, surrogate key generation, window-function event sequencing, and automated data quality testing—to turn raw operational logs into reliable analytical models.
+Municipal animal shelter datasets often arrive as wide, flat exports containing duplicate stay records, inconsistent string formatting, mixed-breed text fields, and open stays without outcomes. This project applies modern analytics engineering best practices—medallion architecture, surrogate key generation, window-function event sequencing, BigQuery partitioning/clustering, and automated data quality testing—to turn raw operational logs into reliable analytical models.
+
+### Architecture & Medallion Layers
+
+```text
+[Bronze: BigQuery Raw Source]
+   └── animal_shelter.intakes_outcomes (~80k rows)
+          │
+          ▼
+[Silver: Staging & Enrichment Views]
+   ├── stg_shelter_stays   (Type casting, trimming, MD5 surrogate keys, deduplication)
+   └── int_animal_stays    (Breed/sex parsing, ROW_NUMBER/LAG visit sequencing, 30-day return flags)
+          │
+          ▼
+[Gold: Kimball Star Schema Tables]
+   ├── dim_animals         (1 row per unique animal; clustered by species & primary breed)
+   └── fct_shelter_stays   (1 row per shelter stay; partitioned by intake_date, clustered by species & outcome)
+```
+
+*(Note: To view the interactive data dictionary and lineage DAG locally, run `dbt docs generate && dbt docs serve` inside `shelter_warehouse/`.)*
 
 ### Key Engineering Highlights
-* **Cloud Data Warehousing (BigQuery):** Modeled directly on Google BigQuery using native SQL transformations, date partitioning, and clustering for query efficiency.
-* **Medallion Architecture (`dbt Core`):**
-  * **Staging (`models/staging`):** 1-to-1 source standardization, whitespace trimming, type casting (`FLOAT64` visit counts to `INT64`, timestamps to dates), and deterministic MD5 surrogate primary key (`stay_id`) generation.
-  * **Intermediate (`models/intermediate`):** *(In Progress)* Breed parsing, spay/neuter status extraction, and `ROW_NUMBER()` / `LAG()` window functions to sequence repeat animal visits and calculate return rates.
-  * **Marts (`models/marts`):** *(Planned)* Kimball-style dimensional tables (`dim_animals`, `fct_shelter_stays`) designed for self-serve operational reporting.
-* **Data Quality & Governance:** Automated `unique`, `not_null`, and business-rule tests defined in YAML alongside model and column-level lineage documentation.
+* **Cloud Data Warehousing (BigQuery):** Gold fact tables are configured with **monthly date partitioning** (`intake_date`) and **multi-column clustering** (`animal_type`, `outcome_type`, `primary_breed`) to minimize query scan costs and improve performance.
+* **Window-Function Event Sequencing:** Uses `ROW_NUMBER()`, `COUNT(*) OVER (...)`, and `LAG()` partitioned by `animal_id` to reconstruct multi-visit animal histories, calculate days between stays, and flag 30-day returns.
+* **Attribute Standardization:** Parses raw breed strings into `primary_breed`, `secondary_breed`, and `is_mixed_breed`, while separating biological sex from reproductive status to track in-shelter spay/neuter conversions (`was_altered_during_stay`).
+* **Automated Data Governance (26/26 Checks Passing):** Enforces `unique`, `not_null`, `accepted_values`, and foreign-key `relationships` tests across every layer of the DAG.
+
+---
+
+## Data Quality Findings & Resolutions
+
+* **Duplicate Stay Records (`unique_stg_shelter_stays_stay_id`):**
+  * **Finding:** Initial staging validation uncovered 26 duplicate `stay_id` keys (`animal_id` + `intake_datetime` + `intake_visit_number`), with some records repeated up to 4 times due to upstream export join fan-out.
+  * **Resolution:** Implemented `QUALIFY ROW_NUMBER()` deduplication in `stg_shelter_stays.sql` partitioned by `stay_id`, resolving all duplicates and achieving 100% primary-key uniqueness.
+
+---
+
+## What This Warehouse Answers
+
+Once built in BigQuery, the Gold star schema supports self-serve operational analysis across key shelter metrics:
+* **30-Day Return Rates:** Tracking how often adopted animals return within 30 days by species, age group, or intake type.
+* **Length of Stay (LOS) Drivers:** Comparing average and median shelter duration across mixed vs. purebred animals, intake conditions, and outcome categories.
+* **In-Shelter Spay/Neuter Impact:** Measuring how many intact animals are altered during their stay (`was_altered_during_stay`) and how that affects adoption timelines.
+* **Active Shelter Capacity:** Isolating open stays (`is_open_stay = true`) to monitor animals currently in care.
 
 ---
 
@@ -22,19 +57,22 @@ Municipal animal shelter datasets often arrive as wide, flat exports containing 
 
 ```text
 shelter-analytics-elt/
-├── .gitignore                 # Excludes virtual environments, dbt artifacts, and credentials
-├── README.md                  # Project overview, architecture, and setup guide
-└── shelter_warehouse/         # dbt Core project directory
-    ├── dbt_project.yml        # Project configuration and materialization rules
-    ├── models/
-    │   ├── staging/
-    │   │   ├── sources.yml            # Raw BigQuery source definitions & source tests
-    │   │   ├── stg_shelter_stays.sql  # Staging cleanup and surrogate key generation
-    │   │   └── stg_shelter_stays.yml  # Staging column documentation & data tests
-    │   ├── intermediate/              # Business logic & repeat-visit window functions
-    │   └── marts/                     # Dimensional facts and dimensions
-    ├── tests/                         # Custom singular SQL data quality tests
-    └── macros/                        # Reusable Jinja SQL macros
+├── .gitignore                         # Excludes virtual environments, dbt artifacts, and credentials
+├── README.md                          # Project overview, architecture, and setup guide
+└── shelter_warehouse/                 # dbt Core project directory
+    ├── dbt_project.yml                # Project configuration and materialization rules
+    └── models/
+        ├── staging/
+        │   ├── sources.yml            # Raw BigQuery source definitions & source tests
+        │   ├── stg_shelter_stays.sql  # Staging cleanup, surrogate keys, and deduplication
+        │   └── stg_shelter_stays.yml  # Staging column documentation & data tests
+        ├── intermediate/
+        │   ├── int_animal_stays.sql   # Breed/sex parsing & repeat-visit window functions
+        │   └── int_animal_stays.yml   # Intermediate documentation & accepted_values tests
+        └── marts/
+            ├── dim_animals.sql        # Gold animal dimension table (clustered)
+            ├── fct_shelter_stays.sql  # Gold shelter stay fact table (partitioned & clustered)
+            └── marts.yml              # Star schema documentation & foreign-key relationship tests
 ```
 
 ---
@@ -45,12 +83,6 @@ shelter-analytics-elt/
 * **Transformation & Testing:** dbt Core (`dbt-bigquery`)
 * **Languages:** SQL (GoogleSQL), YAML, Jinja
 * **Local Development:** macOS, VS Code, Python `.venv`, Google Cloud CLI, Git/GitHub
-
----
-
-## Data Quality Findings Log
-
-* **Duplicate Stay Records (`unique_stg_shelter_stays_stay_id`):** Initial staging validation across ~80,000 raw records flagged 26 duplicate surrogate keys (`animal_id` + `intake_datetime` + `intake_visit_number`), demonstrating the necessity of automated uniqueness assertions before building downstream metrics.
 
 ---
 
@@ -70,9 +102,15 @@ shelter-analytics-elt/
    gcloud auth application-default login
    ```
 
-3. **Verify connection and run models/tests:**
+3. **Verify connection, run models, and execute all 26 tests:**
    ```bash
    cd shelter_warehouse
    dbt debug
    dbt build
+   ```
+
+4. **Generate and view local lineage documentation:**
+   ```bash
+   dbt docs generate
+   dbt docs serve
    ```
