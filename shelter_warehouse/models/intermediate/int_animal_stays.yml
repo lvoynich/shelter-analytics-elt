@@ -1,0 +1,35 @@
+# ==============================================================================
+# FILE: models/intermediate/int_animal_stays.yml
+# PURPOSE: Documents enriched columns and enforces business-rule data tests on
+#          the Silver intermediate shelter stays model.
+# ==============================================================================
+
+version: 2
+
+models:
+  - name: int_animal_stays
+    description: "Enriched shelter stay events with parsed breed/sex attributes, window-function visit sequences, and 30-day return flags."
+    columns:
+      - name: stay_id
+        description: "Primary key uniquely identifying each deduplicated shelter stay."
+        data_tests:
+          - unique
+          - not_null
+      - name: animal_id
+        description: "Unique identifier for the animal."
+        data_tests:
+          - not_null
+      - name: primary_breed
+        description: "Cleaned primary breed extracted from raw breed strings."
+        data_tests:
+          - not_null
+      - name: biological_sex
+        description: "Standardized biological sex (Male, Female, or Unknown)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Male', 'Female', 'Unknown']
+      - name: calculated_visit_number
+        description: "Sequential visit number for the animal ordered by intake timestamp."
+        data_tests:
+          - not_null

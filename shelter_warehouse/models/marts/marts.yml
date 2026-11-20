@@ -1,0 +1,46 @@
+# ==============================================================================
+# FILE: models/marts/marts.yml
+# PURPOSE: Documents Gold Kimball marts and enforces primary/foreign key
+#          referential integrity across the star schema.
+# ==============================================================================
+
+version: 2
+
+models:
+  - name: dim_animals
+    description: "Kimball dimension table containing one canonical profile per unique animal and lifetime shelter metrics."
+    columns:
+      - name: animal_id
+        description: "Primary key uniquely identifying each animal."
+        data_tests:
+          - unique
+          - not_null
+      - name: animal_type
+        description: "Species of the animal (e.g., Dog, Cat, Bird, Other)."
+        data_tests:
+          - not_null
+      - name: total_shelter_stays
+        description: "Total number of recorded shelter intakes for this animal."
+        data_tests:
+          - not_null
+
+  - name: fct_shelter_stays
+    description: "Kimball fact table recording each shelter stay event, length of stay, and outcome."
+    columns:
+      - name: stay_id
+        description: "Primary key uniquely identifying each shelter stay."
+        data_tests:
+          - unique
+          - not_null
+      - name: animal_id
+        description: "Foreign key referencing dim_animals.animal_id."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_animals')
+                field: animal_id
+      - name: intake_date
+        description: "Partition key representing the calendar date the stay began."
+        data_tests:
+          - not_null
