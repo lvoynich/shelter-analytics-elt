@@ -1,0 +1,28 @@
+
+target/
+dbt_packages/
+logs/
+.env
+
+# Python virtual environments & cache
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# dbt build artifacts, packages & logs
+shelter_warehouse/target/
+shelter_warehouse/dbt_packages/
+shelter_warehouse/logs/
+**/target/
+**/dbt_packages/
+**/logs/
+
+# Secrets & credentials
+.env
+*.json
+profiles.yml
+
+# macOS & editor clutter
+.DS_Store
+.vscode/

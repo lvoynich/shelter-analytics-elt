@@ -1,0 +1,27 @@
+# ==============================================================================
+# FILE: models/staging/sources.yml
+# PURPOSE: Registers raw BigQuery tables so dbt can track data lineage and run
+#          initial data quality checks before any transformations happen.
+# USAGE:   Referenced in SQL models via {{ source('animal_shelter', 'intakes_outcomes') }}
+# ==============================================================================
+
+version: 2
+
+sources:
+  - name: animal_shelter
+    database: project-29271b4d-441a-4f84-86c   # GCP Project ID
+    schema: animal_shelter                     # Raw BigQuery dataset name
+    description: "Raw combined animal shelter intake and outcome records (~80k rows)."
+
+    tables:
+      - name: intakes_outcomes
+        description: "Combined shelter stay records containing intake metadata, animal demographics, and outcome details."
+        columns:
+          - name: animal_id_intake
+            description: "Unique identifier assigned to the animal at intake."
+            data_tests:
+              - not_null
+          - name: intake_datetime
+            description: "Timestamp when the animal entered the shelter."
+            data_tests:
+              - not_null

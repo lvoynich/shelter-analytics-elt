@@ -1,0 +1,19 @@
+# Python virtual environments & cache
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# dbt build artifacts, packages & logs
+target/
+dbt_packages/
+logs/
+
+# Secrets & credentials
+.env
+*.json
+profiles.yml
+
+# macOS & editor clutter
+.DS_Store
+.vscode/

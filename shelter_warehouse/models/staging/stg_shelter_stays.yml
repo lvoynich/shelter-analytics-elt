@@ -1,0 +1,32 @@
+# ==============================================================================
+# FILE: models/staging/stg_shelter_stays.yml
+# PURPOSE: Defines column-level documentation and automated data quality tests
+#          for the stg_shelter_stays model.
+# USAGE:   Executed automatically whenever you run `dbt test` or `dbt build`.
+# ==============================================================================
+
+version: 2
+
+models:
+  - name: stg_shelter_stays
+    description: "Cleaned, standardized 1-to-1 staging view of shelter stays with generated surrogate keys and proper data types."
+    columns:
+      - name: stay_id
+        description: "Deterministic MD5 surrogate key uniquely identifying each shelter stay."
+        data_tests:
+          - unique
+          - not_null
+      - name: animal_id
+        description: "Primary animal identifier coalesced from intake and outcome IDs."
+        data_tests:
+          - not_null
+      - name: animal_type
+        description: "Species of the animal (e.g., Dog, Cat, Bird, Other)."
+        data_tests:
+          - not_null
+      - name: intake_datetime
+        description: "Timestamp when the shelter stay began."
+        data_tests:
+          - not_null
+      - name: outcome_datetime
+        description: "Timestamp when the shelter stay ended (null if the animal is still in care)."
