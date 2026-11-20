@@ -6,6 +6,7 @@ WHAT IT DOES:
   2. Standardizes column names (e.g., intake_number -> intake_visit_number).
   3. Casts float visit numbers to integers and timestamps to dates.
   4. Trims extra whitespace from text fields and drops redundant helper columns.
+  5. Deduplicates exact duplicate export rows found in the raw dataset.
 MATERIALIZATION: Built as a BigQuery VIEW (configured in dbt_project.yml).
 ============================================================================= #}
 
@@ -70,6 +71,18 @@ cleaned as (
 
     from source
 
+),
+
+deduplicated as (
+
+    -- Remove exact duplicate export rows while keeping one canonical record per stay_id
+    select *
+    from cleaned
+    qualify row_number() over (
+        partition by stay_id
+        order by outcome_datetime desc nulls last
+    ) = 1
+
 )
 
-select * from cleaned
+select * from deduplicated
