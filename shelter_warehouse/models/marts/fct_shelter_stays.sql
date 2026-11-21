@@ -2,15 +2,20 @@
 FILE:    models/marts/fct_shelter_stays.sql
 PURPOSE: Gold Kimball fact table capturing every individual shelter stay event.
 WHAT IT DOES:
-  1. Stores foreign keys (animal_id), event timestamps, and operational metrics.
-  2. Partitions by intake_date (monthly) and clusters by species and outcome
+  1. Materializes incrementally using a BigQuery MERGE strategy on stay_id.
+  2. On incremental runs, processes only newly arrived intakes and previously
+     open stays that may have recently received an outcome.
+  3. Partitions by intake_date (monthly) and clusters by species and outcome
      to optimize BigQuery scan costs and query performance.
-MATERIALIZATION: Built as a partitioned & clustered BigQuery TABLE.
+MATERIALIZATION: Incremental BigQuery TABLE (partitioned & clustered).
 ============================================================================= #}
 
 {{
     config(
-        materialized='table',
+        materialized='incremental',
+        unique_key='stay_id',
+        incremental_strategy='merge',
+        on_schema_change='sync_all_columns',
         partition_by={
             'field': 'intake_date',
             'data_type': 'date',
@@ -23,6 +28,13 @@ MATERIALIZATION: Built as a partitioned & clustered BigQuery TABLE.
 with stays as (
 
     select * from {{ ref('int_animal_stays') }}
+
+    {% if is_incremental() %}
+        -- Filter to new stays since the high-water mark, plus any previously open stays
+        -- so newly recorded outcomes update existing rows via MERGE
+        where intake_datetime >= (select max(intake_datetime) from {{ this }})
+           or stay_id in (select stay_id from {{ this }} where is_open_stay = true)
+    {% endif %}
 
 )
 
