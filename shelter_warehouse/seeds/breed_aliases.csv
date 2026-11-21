@@ -1,21 +1,38 @@
-shelter_breed,api_breed_name
-pit bull,american pit bull terrier
-chihuahua shorthair,chihuahua
-chihuahua longhair,chihuahua
-catahoula,catahoula leopard dog
-staffordshire,american staffordshire terrier
-dachshund longhair,dachshund
-dachshund wirehair,dachshund
-anatol shepherd,anatolian shepherd dog
-plott hound,plott
-queensland heeler,australian cattle dog
-miniature poodle,poodle (miniature)
-toy poodle,poodle (toy)
-chinese sharpei,chinese shar-pei
-doberman pinsch,doberman pinscher
-rhod ridgeback,rhodesian ridgeback
-bichon frise,bichon frisé
-west highland,west highland white terrier
-bruss griffon,brussels griffon
-american eskimo,american eskimo dog
-cavalier span,cavalier king charles spaniel
+shelter_breed,api_breed_name,fallback_size_category
+pit bull,american pit bull terrier,Medium
+chihuahua shorthair,chihuahua,Toy
+chihuahua longhair,chihuahua,Toy
+catahoula,catahoula leopard dog,Large
+staffordshire,american staffordshire terrier,Medium
+dachshund longhair,dachshund,Small
+dachshund wirehair,dachshund,Small
+queensland heeler,australian cattle dog,Medium
+miniature poodle,poodle (miniature),Small
+toy poodle,poodle (toy),Toy
+standard poodle,poodle (standard),Large
+chinese sharpei,chinese shar-pei,Medium
+doberman pinsch,doberman pinscher,Large
+rhod ridgeback,rhodesian ridgeback,Large
+bichon frise,bichon frisé,Small
+west highland,west highland white terrier,Small
+bruss griffon,brussels griffon,Toy
+american eskimo,american eskimo dog,Small
+cavalier span,cavalier king charles spaniel,Small
+great pyrenees,,Giant
+anatol shepherd,anatolian shepherd dog,Giant
+plott hound,plott,Medium
+blue lacy,,Medium
+mastiff,english mastiff,Giant
+collie smooth,collie,Large
+collie rough,collie,Large
+english bulldog,bulldog,Medium
+flat coat retriever,flat-coated retriever,Large
+redbone hound,redbone coonhound,Large
+pbgv,petit basset griffon vendéen,Medium
+english pointer,pointer,Large
+bluetick hound,bluetick coonhound,Large
+english coonhound,american english coonhound,Large
+german shorthair pointer,german shorthaired pointer,Large
+st. bernard rough coat,saint bernard,Giant
+st. bernard smooth coat,saint bernard,Giant
+wire hair fox terrier,wire fox terrier,Small
