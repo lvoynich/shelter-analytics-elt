@@ -33,6 +33,7 @@ Municipal animal shelter datasets often arrive as wide, flat exports containing 
 * **Attribute Standardization:** Parses raw breed strings into `primary_breed`, `secondary_breed`, and `is_mixed_breed`, while separating biological sex from reproductive status to track in-shelter spay/neuter conversions (`was_altered_during_stay`).
 * **Automated Data Governance (26/26 Checks Passing):** Enforces `unique`, `not_null`, `accepted_values`, and foreign-key `relationships` tests across every layer of the DAG.
 
+
 ---
 
 ## Data Quality Findings & Resolutions
@@ -40,6 +41,10 @@ Municipal animal shelter datasets often arrive as wide, flat exports containing 
 * **Duplicate Stay Records (`unique_stg_shelter_stays_stay_id`):**
   * **Finding:** Initial staging validation uncovered 26 duplicate `stay_id` keys (`animal_id` + `intake_datetime` + `intake_visit_number`), with some records repeated up to 4 times due to upstream export join fan-out.
   * **Resolution:** Implemented `QUALIFY ROW_NUMBER()` deduplication in `stg_shelter_stays.sql` partitioned by `stay_id`, resolving all duplicates and achieving 100% primary-key uniqueness.
+
+* **Intake Age Estimation Discrepancies (`chk_age`):**
+  * **Finding:** Custom age validation (`age_upon_outcome_days < age_upon_intake_days`) flagged 152 stays where recorded outcome age was lower than intake age—primarily concentrated in sequential litter intakes (e.g., `A764890`–`A764898`) where staff estimated 5 weeks (`35` days) at intake and refined the birth date to 1 month (`30` days) at outcome.
+  * **Resolution:** Configured `chk_age.sql` with `severity = 'warn'` to maintain observability over source estimation adjustments without blocking downstream mart builds.
 
 ---
 
@@ -74,6 +79,13 @@ shelter-analytics-elt/
             ├── fct_shelter_stays.sql  # Gold shelter stay fact table (partitioned & clustered)
             └── marts.yml              # Star schema documentation & foreign-key relationship tests
 ```
+
+---
+
+### Custom Singular Tests (`shelter_warehouse/tests/`)
+* **`chk_biology.sql`:** Uses `LAG()` window functions partitioned by `animal_id` to verify biological consistency across repeat visits, confirming zero animals reverted from `Altered` back to `Intact`.
+* **`chk_age.sql`:** Monitors stays where outcome age is lower than intake age (`severity = 'warn'`), isolating bulk litter age-estimation adjustments.
+* **`assert_outcome_after_intake.sql`:** Enforces chronological integrity by verifying no closed stay has an outcome timestamp prior to intake.
 
 ---
 
