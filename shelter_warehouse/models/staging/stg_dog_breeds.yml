@@ -1,0 +1,28 @@
+# ==============================================================================
+# FILE: models/staging/stg_dog_breeds.yml
+# PURPOSE: Documents standardized breed reference fields and enforces uniqueness
+#          on the join key (breed_name_clean) before joining into Gold marts.
+# ==============================================================================
+
+version: 2
+
+models:
+  - name: stg_dog_breeds
+    description: "Cleaned canine breed reference metadata from The Dog API with parsed weight ranges and size buckets."
+    columns:
+      - name: breed_id
+        description: "Primary key from The Dog API."
+        data_tests:
+          - unique
+          - not_null
+      - name: breed_name_clean
+        description: "Lowercase, trimmed breed name used as the join key to shelter animal records."
+        data_tests:
+          - unique
+          - not_null
+      - name: size_category
+        description: "Standardized size bucket derived from max_weight_lbs (Toy, Small, Medium, Large, Giant, Unknown)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['Toy', 'Small', 'Medium', 'Large', 'Giant', 'Unknown']

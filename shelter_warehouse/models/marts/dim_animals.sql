@@ -68,11 +68,13 @@ animal_profiles as (
 
     from stays
     left join aliases
-        on lower(trim(stays.primary_breed)) = aliases.shelter_breed
-        and stays.animal_type = 'Dog'
+        on
+            lower(trim(stays.primary_breed)) = aliases.shelter_breed
+            and stays.animal_type = 'Dog'
     left join breeds
-        on coalesce(aliases.api_breed_name, lower(trim(stays.primary_breed))) = breeds.breed_name_clean
-        and stays.animal_type = 'Dog'
+        on
+            coalesce(aliases.api_breed_name, lower(trim(stays.primary_breed))) = breeds.breed_name_clean
+            and stays.animal_type = 'Dog'
 
     -- Keep the most recent stay record per animal for canonical profile attributes
     qualify row_number() over (

@@ -4,13 +4,13 @@ PURPOSE: Extracts canine breed metadata from The Dog API and loads it into
          Google BigQuery as a Bronze reference table (raw_dog_breeds).
 """
 
-from datetime import datetime, timezone
 import logging
 import os
+from datetime import UTC, datetime
 from typing import Any
 
-from google.cloud import bigquery
 import requests
+from google.cloud import bigquery
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -66,7 +66,7 @@ def fetch_dog_breeds() -> list[dict[str, Any]]:
 
 def transform_breed_records(raw_breeds: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Flatten nested JSON fields and append ingestion audit metadata."""
-    ingested_at = datetime.now(timezone.utc).isoformat()
+    ingested_at = datetime.now(UTC).isoformat()
     cleaned_records: list[dict[str, Any]] = []
 
     for item in raw_breeds:

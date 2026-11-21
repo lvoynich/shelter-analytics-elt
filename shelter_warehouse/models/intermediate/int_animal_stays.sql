@@ -22,10 +22,7 @@ parsed_attributes as (
         *,
 
         -- Breed parsing: identify mixes and extract clean primary/secondary breeds
-        case
-            when breed like '%/%' or lower(breed) like '% mix%' then true
-            else false
-        end as is_mixed_breed,
+        coalesce(breed like '%/%' or lower(breed) like '% mix%', false) as is_mixed_breed,
 
         trim(
             regexp_replace(
@@ -45,8 +42,9 @@ parsed_attributes as (
 
         -- Biological sex extraction
         case
-            when lower(coalesce(sex_upon_outcome, sex_upon_intake)) like '%male%'
-                 and lower(coalesce(sex_upon_outcome, sex_upon_intake)) not like '%female%' then 'Male'
+            when
+                lower(coalesce(sex_upon_outcome, sex_upon_intake)) like '%male%'
+                and lower(coalesce(sex_upon_outcome, sex_upon_intake)) not like '%female%' then 'Male'
             when lower(coalesce(sex_upon_outcome, sex_upon_intake)) like '%female%' then 'Female'
             else 'Unknown'
         end as biological_sex,
@@ -75,11 +73,10 @@ sequenced_stays as (
         *,
 
         -- Flag whether the animal was spayed/neutered during this shelter stay
-        case
-            when intake_reproductive_status = 'Intact'
-                 and outcome_reproductive_status = 'Altered' then true
-            else false
-        end as was_altered_during_stay,
+        coalesce(
+            intake_reproductive_status = 'Intact'
+            and outcome_reproductive_status = 'Altered', false
+        ) as was_altered_during_stay,
 
         -- Window functions across an animal's full shelter history
         row_number() over (
@@ -97,10 +94,7 @@ sequenced_stays as (
         ) as previous_outcome_datetime,
 
         -- Open stay indicator (no outcome recorded yet)
-        case
-            when outcome_datetime is null then true
-            else false
-        end as is_open_stay
+        coalesce(outcome_datetime is null, false) as is_open_stay
 
     from parsed_attributes
 
@@ -155,11 +149,10 @@ final as (
         time_in_shelter_days,
         previous_outcome_datetime,
         timestamp_diff(intake_datetime, previous_outcome_datetime, day) as days_since_previous_outcome,
-        case
-            when previous_outcome_datetime is not null
-                 and timestamp_diff(intake_datetime, previous_outcome_datetime, day) between 0 and 30 then true
-            else false
-        end as is_30_day_return
+        coalesce(
+            previous_outcome_datetime is not null
+            and timestamp_diff(intake_datetime, previous_outcome_datetime, day) between 0 and 30, false
+        ) as is_30_day_return
 
     from sequenced_stays
 

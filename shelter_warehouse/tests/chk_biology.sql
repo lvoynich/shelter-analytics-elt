@@ -22,8 +22,9 @@ select
     intake_reproductive_status,
     outcome_reproductive_status
 from visit_history
-where previous_outcome_status = 'Altered'
-  and (
-      intake_reproductive_status = 'Intact'
-      or outcome_reproductive_status = 'Intact'
-  )
+where
+    previous_outcome_status = 'Altered'
+    and (
+        intake_reproductive_status = 'Intact'
+        or outcome_reproductive_status = 'Intact'
+    )

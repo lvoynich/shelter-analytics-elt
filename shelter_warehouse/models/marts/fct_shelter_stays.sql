@@ -27,13 +27,15 @@ MATERIALIZATION: Incremental BigQuery TABLE (partitioned & clustered).
 
 with stays as (
 
-    select * from {{ ref('int_animal_stays') }}
-
+    select src.*
+    from {{ ref('int_animal_stays') }} as src
     {% if is_incremental() %}
-        -- Filter to new stays since the high-water mark, plus any previously open stays
-        -- so newly recorded outcomes update existing rows via MERGE
-        where intake_datetime >= (select max(intake_datetime) from {{ this }})
-           or stay_id in (select stay_id from {{ this }} where is_open_stay = true)
+        where
+            src.intake_datetime >= (select max(dest.intake_datetime) from {{ this }} as dest)
+            or src.stay_id in (
+                select dest.stay_id from {{ this }} as dest
+                where dest.is_open_stay = true
+            )
     {% endif %}
 
 )

@@ -25,3 +25,16 @@ sources:
             description: "Timestamp when the animal entered the shelter."
             data_tests:
               - not_null
+        
+      - name: raw_dog_breeds
+        description: "Canine breed reference metadata ingested from The Dog API via Python (631 breeds)."
+        columns:
+          - name: breed_id
+            description: "Unique breed identifier from The Dog API."
+            data_tests:
+              - unique
+              - not_null
+          - name: breed_name
+            description: "Standardized breed name."
+            data_tests:
+              - not_null
