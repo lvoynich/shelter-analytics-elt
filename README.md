@@ -1,4 +1,5 @@
 # Animal Shelter Operations & Stay Analytics ELT
+[![Data Pipeline CI](https://github.com)](https://github.com)
 
 An end-to-end analytics engineering pipeline built with **dbt Core**, **Google BigQuery**, and **SQL** to transform ~80,000 raw animal shelter intake and outcome records into a governed, tested Kimball star schema.
 
