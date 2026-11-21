@@ -1,0 +1,9 @@
+shelter_warehouse:
+  target: ci
+  outputs:
+    ci:
+      type: bigquery
+      method: oauth
+      project: ci-placeholder-project
+      dataset: animal_shelter
+      threads: 4
