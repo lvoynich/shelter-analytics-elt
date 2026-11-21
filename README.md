@@ -24,7 +24,7 @@ Municipal animal shelter datasets often arrive as wide, flat exports containing 
    ├── dim_animals         (1 row per unique animal; clustered by species & primary breed)
    └── fct_shelter_stays   (1 row per shelter stay; partitioned by intake_date, clustered by species & outcome)
 ```
-
+![dbt Lineage Graph](assets/lineage_dag.png)
 *(Note: To view the interactive data dictionary and lineage DAG locally, run `dbt docs generate && dbt docs serve` inside `shelter_warehouse/`.)*
 
 ### Key Engineering Highlights
