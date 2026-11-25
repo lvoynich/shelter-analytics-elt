@@ -77,6 +77,8 @@ Once built in BigQuery, the Gold star schema supports self-serve operational ana
 
 ```text
 shelter-analytics-elt/
+├── .dockerignore                      # Excludes credentials, .venv, and local dbt artifacts from image
+
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                     # Automated Ruff, SQLFluff, and dbt parse CI pipeline
@@ -84,6 +86,8 @@ shelter-analytics-elt/
 ├── assets/
 │   ├── lineage_dag.png                # dbt model lineage DAG
 │   └── prefect_flow_run.png           # Prefect 3 orchestrated flow run graph
+├── Dockerfile                         # Slim Python 3.11 Linux container definition
+
 ├── flow.py                            # Prefect 3 ELT orchestration pipeline (API ingest + dbt build)
 ├── README.md                          # Project overview, architecture, and setup guide
 ├── requirements.txt                   # Python dependencies (prefect[dbt], dbt-bigquery, google-cloud-bigquery, requests)
@@ -122,6 +126,7 @@ shelter-analytics-elt/
 ## Tech Stack
 
 * **Orchestration:** Prefect 3 (`prefect-dbt`)
+* **Containerization:** Docker (`python:3.11-slim` Linux runtime)
 * **Data Warehouse:** Google BigQuery
 * **Transformation & Testing:** dbt Core (`dbt-bigquery`)
 * **Languages:** Python, SQL (GoogleSQL), YAML, Jinja
@@ -156,7 +161,17 @@ shelter-analytics-elt/
      python flow.py
      ```
 
-4. **Run standalone dbt commands (optional):**
+4. **Run the containerized pipeline with Docker (optional):**
+   Build the portable Linux image and mount your local dbt profile and Google Cloud credentials as read-only volumes at runtime:
+   ```bash
+   docker build -t animal-shelter-elt .
+
+   docker run --rm \
+     -v ~/.dbt:/root/.dbt:ro \
+     -v ~/.config/gcloud:/root/.config/gcloud:ro \
+     animal-shelter-elt
+   ```
+5. **Run standalone dbt commands (optional):**
    ```bash
    cd shelter_warehouse
    dbt build

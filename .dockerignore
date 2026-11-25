@@ -1,0 +1,30 @@
+# ============================================================================
+# .dockerignore — Keeps credentials out of the image & speeds up builds
+# ============================================================================
+
+# 1. SECURITY: Never bake GCP keys or secrets into a Docker image!
+#    Anyone who inspects an image can extract files inside it. We pass
+#    credentials safely at runtime using read-only volume mounts (-v).
+*.json
+.env
+.env.*
+
+# 2. MAC VIRTUAL ENVIRONMENTS: Your Mac's .venv contains macOS binaries
+#    that will crash inside a Linux container and bloat image size.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# 3. LOCAL DBT ARTIFACTS: Ignore local compiled SQL, logs, and packages.
+#    The container will generate fresh Linux-compatible artifacts on run.
+shelter_warehouse/target/
+shelter_warehouse/logs/
+shelter_warehouse/dbt_packages/
+
+# 4. GIT & IDE FILES: Not needed to execute the pipeline.
+.git/
+.gitignore
+.github/
+.vscode/
+.DS_Store
