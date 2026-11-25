@@ -1,34 +1,42 @@
 # Animal Shelter Operations & Stay Analytics ELT
-[![Data Pipeline CI](https://github.com/lvoynich/shelter-analytics-elt/actions/workflows/ci.yml/badge.svg)](https://github.com/lvoynich/shelter-analytics-elt/actions/workflows/ci.yml)
+[![Data Pipeline CI](https://github.com)](https://github.com)
 
-An end-to-end analytics engineering pipeline built with **dbt Core**, **Google BigQuery**, and **SQL** to transform ~80,000 raw animal shelter intake and outcome records into a governed, tested Kimball star schema.
+An end-to-end, orchestrated data and analytics engineering pipeline built with **Prefect 3**, **Python**, **dbt Core**, **Google BigQuery**, and **SQL** to ingest reference API data and transform ~80,000 raw animal shelter intake and outcome records into a governed, tested Kimball star schema.
 
 ---
 
 ## Project Overview
 
-Municipal animal shelter datasets often arrive as wide, flat exports containing duplicate stay records, inconsistent string formatting, mixed-breed text fields, and open stays without outcomes. This project applies modern analytics engineering best practices—medallion architecture, surrogate key generation, window-function event sequencing, BigQuery partitioning/clustering, and automated data quality testing—to turn raw operational logs into reliable analytical models.
+Municipal animal shelter datasets often arrive as wide, flat exports containing duplicate stay records, inconsistent string formatting, mixed-breed text fields, and open stays without outcomes. This project applies modern data and analytics engineering best practices—automated workflow orchestration, fault-tolerant API ingestion, medallion architecture, surrogate key generation, window-function event sequencing, BigQuery partitioning/clustering, and automated data quality testing—to turn raw operational logs into reliable analytical models.
 
-### Architecture & Medallion Layers
+### Orchestrated Architecture & Medallion Layers
 
 ```text
-[Bronze: BigQuery Raw Source]
-   └── animal_shelter.intakes_outcomes (~80k rows)
-          │
-          ▼
-[Silver: Staging & Enrichment Views]
-   ├── stg_shelter_stays   (Type casting, trimming, MD5 surrogate keys, deduplication)
-   └── int_animal_stays    (Breed/sex parsing, ROW_NUMBER/LAG visit sequencing, 30-day return flags)
-          │
-          ▼
-[Gold: Kimball Star Schema Tables]
-   ├── dim_animals         (1 row per unique animal; clustered by species & primary breed)
-   └── fct_shelter_stays   (1 row per shelter stay; partitioned by intake_date, clustered by species & outcome)
+                       [Prefect 3 Orchestrator: flow.py]
+                                       │
+          ┌────────────────────────────┴────────────────────────────┐
+          ▼ (Task 1: retries=3, backoff)                            ▼ (Task 2: fail-fast gate)
+[Python REST API Ingestion]                               [dbt Core Build & Test]
+   └── src/ingest_dog_breeds.py                              └── shelter_warehouse/
+          │                                                         │
+          ▼                                                         ▼
+[Bronze: BigQuery Raw Sources] ──────────────────────────► [Silver: Staging & Enrichment Views]
+   ├── animal_shelter.intakes_outcomes (~80k rows)            ├── stg_shelter_stays (Deduplication, MD5 keys)
+   └── animal_shelter.dog_breeds (631 API records)            └── int_animal_stays  (Breed/sex parsing, LAG/ROW_NUMBER)
+                                                                    │
+                                                                    ▼
+                                                           [Gold: Kimball Star Schema Tables]
+                                                              ├── dim_animals       (Clustered by species & breed)
+                                                              └── fct_shelter_stays (Partitioned by intake_date)
 ```
+
+![Prefect 3 ELT Flow Run](assets/prefect_flow_run.png)
+
 ![dbt Lineage Graph](assets/lineage_dag.png)
 *(Note: To view the interactive data dictionary and lineage DAG locally, run `dbt docs generate && dbt docs serve` inside `shelter_warehouse/`.)*
 
 ### Key Engineering Highlights
+* **Workflow Orchestration (`flow.py` / Prefect 3):** Coordinates end-to-end execution order between Python extraction and dbt transformations using `PrefectDbtRunner`. Enforces automated task retries (`retries=3` with delay) on external API ingestion and fail-fast dependency gating (`raise_on_failure=True`) so downstream Gold tables never update if upstream ingestion or data quality tests fail.
 * **Cloud Data Warehousing (BigQuery):** Gold fact tables are configured with **monthly date partitioning** (`intake_date`) and **multi-column clustering** (`animal_type`, `outcome_type`, `primary_breed`) to minimize query scan costs and improve performance.
 * **Window-Function Event Sequencing:** Uses `ROW_NUMBER()`, `COUNT(*) OVER (...)`, and `LAG()` partitioned by `animal_id` to reconstruct multi-visit animal histories, calculate days between stays, and flag 30-day returns.
 * **Attribute Standardization:** Parses raw breed strings into `primary_breed`, `secondary_breed`, and `is_mixed_breed`, while separating biological sex from reproductive status to track in-shelter spay/neuter conversions (`was_altered_during_stay`).
@@ -36,7 +44,6 @@ Municipal animal shelter datasets often arrive as wide, flat exports containing 
 * **Python API Ingestion (`src/ingest_dog_breeds.py`):** Extracts 631 canine breed records from The Dog API with exponential-backoff retries, structured logging, and explicit BigQuery schema enforcement (`WRITE_TRUNCATE`).
 * **Entity Resolution via `dbt seed` (`breed_aliases.csv`):** Resolves municipal shelter breed shorthand and applies AKC size fallbacks, boosting canine breed match rates from 59.6% to **99.5%**.
 * **Incremental `MERGE` & CI/CD:** Materializes `fct_shelter_stays` incrementally on `stay_id` (updating newly closed open stays) and validates every push via GitHub Actions (`ruff`, `sqlfluff`, and `dbt parse`).
-
 
 ---
 
@@ -70,27 +77,37 @@ Once built in BigQuery, the Gold star schema supports self-serve operational ana
 
 ```text
 shelter-analytics-elt/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                     # Automated Ruff, SQLFluff, and dbt parse CI pipeline
 ├── .gitignore                         # Excludes virtual environments, dbt artifacts, and credentials
+├── assets/
+│   ├── lineage_dag.png                # dbt model lineage DAG
+│   └── prefect_flow_run.png           # Prefect 3 orchestrated flow run graph
+├── flow.py                            # Prefect 3 ELT orchestration pipeline (API ingest + dbt build)
 ├── README.md                          # Project overview, architecture, and setup guide
+├── requirements.txt                   # Python dependencies (prefect[dbt], dbt-bigquery, google-cloud-bigquery, requests)
+├── src/
+│   ├── __init__.py                    # Marks src/ as an importable Python package
+│   └── ingest_dog_breeds.py           # REST API ingestion script loading 631 breeds into BigQuery
 └── shelter_warehouse/                 # dbt Core project directory
     ├── dbt_project.yml                # Project configuration and materialization rules
-    └── models/
-        ├── staging/
-        │   ├── sources.yml            # Raw BigQuery source definitions & source tests
-        │   ├── stg_shelter_stays.sql  # Staging cleanup, surrogate keys, and deduplication
-        │   └── stg_shelter_stays.yml  # Staging column documentation & data tests
-        ├── intermediate/
-        │   ├── int_animal_stays.sql   # Breed/sex parsing & repeat-visit window functions
-        │   └── int_animal_stays.yml   # Intermediate documentation & accepted_values tests
-        └── marts/
-            ├── dim_animals.sql        # Gold animal dimension table (clustered)
-            ├── fct_shelter_stays.sql  # Gold shelter stay fact table (partitioned & clustered)
-            └── marts.yml              # Star schema documentation & foreign-key relationship tests
-            ├── .github/workflows/ci.yml           # Automated Ruff, SQLFluff, and dbt parse CI pipeline
-├── requirements.txt                   # Python dependencies (dbt-bigquery, google-cloud-bigquery, requests)
-├── src/
-│   └── ingest_dog_breeds.py           # REST API ingestion script loading 631 breeds into BigQuery
-
+    ├── models/
+    │   ├── staging/
+    │   │   ├── sources.yml            # Raw BigQuery source definitions & source tests
+    │   │   ├── stg_shelter_stays.sql  # Staging cleanup, surrogate keys, and deduplication
+    │   │   └── stg_shelter_stays.yml  # Staging column documentation & data tests
+    │   ├── intermediate/
+    │   │   ├── int_animal_stays.sql   # Breed/sex parsing & repeat-visit window functions
+    │   │   └── int_animal_stays.yml   # Intermediate documentation & accepted_values tests
+    │   └── marts/
+    │       ├── dim_animals.sql        # Gold animal dimension table (clustered)
+    │       ├── fct_shelter_stays.sql  # Gold shelter stay fact table (partitioned & clustered)
+    │       └── marts.yml              # Star schema documentation & foreign-key relationship tests
+    └── tests/
+        ├── assert_outcome_after_intake.sql
+        ├── chk_age.sql
+        └── chk_biology.sql
 ```
 
 ---
@@ -104,38 +121,43 @@ shelter-analytics-elt/
 
 ## Tech Stack
 
+* **Orchestration:** Prefect 3 (`prefect-dbt`)
 * **Data Warehouse:** Google BigQuery
 * **Transformation & Testing:** dbt Core (`dbt-bigquery`)
-* **Languages:** SQL (GoogleSQL), YAML, Jinja
+* **Languages:** Python, SQL (GoogleSQL), YAML, Jinja
+* **CI/CD & Tooling:** GitHub Actions, Ruff, SQLFluff, Google Cloud CLI, Git/GitHub
 * **Local Development:** macOS, VS Code, Python `.venv`, Google Cloud CLI, Git/GitHub
 
 ---
 
 ## Local Setup & Usage
 
-1. **Clone the repository and activate the virtual environment:**
+1. **Clone the repository and activate a virtual environment:**
    ```bash
    git clone https://github.com
    cd shelter-analytics-elt
    python3 -m venv .venv
    source .venv/bin/activate
-   pip install dbt-bigquery
+   pip install -r requirements.txt
    ```
 
-2. **Authenticate with Google Cloud:**
-   ```bash
-   gcloud auth application-default login
-   ```
+2. **Configure Google Cloud & dbt credentials:**
+   * Authenticate with BigQuery (`gcloud auth application-default login` or configure a service account key).
+   * Ensure `~/.dbt/profiles.yml` contains a `shelter_warehouse` profile pointing to your GCP project and dataset.
 
-3. **Verify connection, run models, and execute all 26 tests:**
+3. **Run the orchestrated ELT pipeline with Prefect:**
+   * *(Optional)* Start the local Prefect UI server in a separate terminal:
+     ```bash
+     prefect server start
+     prefect config set PREFECT_API_URL="http://localhost:4200/api"
+     ```
+   * Execute the end-to-end flow (REST API ingestion followed by `dbt build`):
+     ```bash
+     python flow.py
+     ```
+
+4. **Run standalone dbt commands (optional):**
    ```bash
    cd shelter_warehouse
-   dbt debug
    dbt build
-   ```
-
-4. **Generate and view local lineage documentation:**
-   ```bash
-   dbt docs generate
-   dbt docs serve
    ```
