@@ -54,8 +54,15 @@ To serve self-service operational metrics without slow client-side data blending
 * **Partition-Pruned Filtering:** Interactive controls for `intake_date` (pushing predicates down to BigQuery monthly partitions), `animal_type`, `intake_type`, and `outcome_type`, plus cross-filtering across all visuals.
 * **Operational Breakdowns:** Visualizes monthly intake seasonality by species, median length of stay across outcome paths, and 30-day return rates by intake age group.
 
+### Key Analytical Takeaways
 
-### Key Engineering Highlights
+* **Multi-Visit Population & Recidivism:** Across **79,636** total shelter stays serving **71,961** unique animals, **7,675 stays (9.64%)** represent repeat visits—demonstrating why stay-level grain (`stay_id`) and window-function event sequencing (`ROW_NUMBER()`, `LAG()`) are critical for accurate operational reporting.
+* **Rapid Median Turnaround (4.99 Days):** The shelter maintains an overall median length of stay of **4.99 days**, with turnaround times varying sharply across outcome paths (such as fast **Return to Owner** reunifications versus longer **Adoption** and **Transfer** preparation timelines).
+* **In-Shelter Spay/Neuter Conversions (37.64%):** More than one in three total intakes (**37.64%**) underwent spay or neuter surgery during their stay (`was_altered_during_stay`), tracking the shelter's direct medical intervention volume prior to release.
+* **Low 30-Day Return Rate (3.86%):** Only **3.86%** of stays resulted in a return within 30 days (`is_30_day_return`), allowing shelter staff to isolate specific intake age groups and intake channels where post-adoption support can reduce recidivism further.
+
+
+## Key Engineering Highlights
 * **Workflow Orchestration (`flow.py` / Prefect 3):** Coordinates end-to-end execution order between Python extraction and dbt transformations using `PrefectDbtRunner`. Enforces automated task retries (`retries=3` with delay) on external API ingestion and fail-fast dependency gating (`raise_on_failure=True`) so downstream Gold tables never update if upstream ingestion or data quality tests fail.
 * **Cloud Data Warehousing (BigQuery):** Gold fact tables are configured with **monthly date partitioning** (`intake_date`) and **multi-column clustering** (`animal_type`, `outcome_type`, `primary_breed`) to minimize query scan costs and improve performance.
 * **Window-Function Event Sequencing:** Uses `ROW_NUMBER()`, `COUNT(*) OVER (...)`, and `LAG()` partitioned by `animal_id` to reconstruct multi-visit animal histories, calculate days between stays, and flag 30-day returns.
