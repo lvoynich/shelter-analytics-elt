@@ -1,7 +1,8 @@
 # Animal Shelter Operations & Stay Analytics ELT
-[![Data Pipeline CI](https://github.com)](https://github.com)
+[![Data Pipeline CI](https://github.com/lvoynich/shelter-analytics-elt/actions/workflows/ci.yml/badge.svg)](https://github.com/lvoynich/shelter-analytics-elt/actions/workflows/ci.yml)
 
-An end-to-end, orchestrated data and analytics engineering pipeline built with **Prefect 3**, **Python**, **dbt Core**, **Google BigQuery**, and **SQL** to ingest reference API data and transform ~80,000 raw animal shelter intake and outcome records into a governed, tested Kimball star schema.
+An end-to-end, containerized data and analytics engineering pipeline built with **Prefect 3**, **Python**, **dbt Core**, **Google BigQuery**, **SQL**, and **Looker Studio** to ingest reference API data, transform ~80,000 raw animal shelter records into a governed Kimball star schema, and deliver self-serve operational analytics via a live BI dashboard.
+
 
 ---
 
@@ -25,15 +26,34 @@ Municipal animal shelter datasets often arrive as wide, flat exports containing 
    └── animal_shelter.dog_breeds (631 API records)            └── int_animal_stays  (Breed/sex parsing, LAG/ROW_NUMBER)
                                                                     │
                                                                     ▼
-                                                           [Gold: Kimball Star Schema Tables]
-                                                              ├── dim_animals       (Clustered by species & breed)
-                                                              └── fct_shelter_stays (Partitioned by intake_date)
+                                                           [Gold: Kimball Star Schema & BI View]
+                                                              ├── dim_animals           (Clustered by species & breed)
+                                                              ├── fct_shelter_stays     (Partitioned by intake_date)
+                                                              └── rpt_shelter_dashboard (Denormalized BI view + dbt exposure)
+                                                                       │
+                                                                       ▼
+                                                           [Looker Studio Executive Dashboard]
+                                                              └── Live BigQuery connector (Partition-pruned, cross-filtered)
 ```
+
 
 ![Prefect 3 ELT Flow Run](assets/prefect_flow_run.png)
 
 ![dbt Lineage Graph](assets/lineage_dag.png)
 *(Note: To view the interactive data dictionary and lineage DAG locally, run `dbt docs generate && dbt docs serve` inside `shelter_warehouse/`.)*
+
+## Interactive BI Dashboard (Looker Studio)
+
+**[View Live Interactive Dashboard](https://datastudio.google.com/reporting/76744b73-6133-4d75-bf3f-f4669f703f96/page/qXOEG)**
+
+![Animal Shelter Operations & Stay Analytics Dashboard](assets/dashboard_preview.png)
+
+To serve self-service operational metrics without slow client-side data blending, a flattened BigQuery reporting view (`rpt_shelter_dashboard`) joins `fct_shelter_stays` and `dim_animals` and is registered as a governed **dbt exposure** (`exposures.yml`).
+
+* **Executive KPI Scorecards:** Tracks Total Intakes, Unique Animals Served, Median Length of Stay (Days), 30-Day Return Rate, and In-Shelter Spay/Neuter Conversion Rate.
+* **Partition-Pruned Filtering:** Interactive controls for `intake_date` (pushing predicates down to BigQuery monthly partitions), `animal_type`, `intake_type`, and `outcome_type`, plus cross-filtering across all visuals.
+* **Operational Breakdowns:** Visualizes monthly intake seasonality by species, median length of stay across outcome paths, and 30-day return rates by intake age group.
+
 
 ### Key Engineering Highlights
 * **Workflow Orchestration (`flow.py` / Prefect 3):** Coordinates end-to-end execution order between Python extraction and dbt transformations using `PrefectDbtRunner`. Enforces automated task retries (`retries=3` with delay) on external API ingestion and fail-fast dependency gating (`raise_on_failure=True`) so downstream Gold tables never update if upstream ingestion or data quality tests fail.
@@ -44,6 +64,7 @@ Municipal animal shelter datasets often arrive as wide, flat exports containing 
 * **Python API Ingestion (`src/ingest_dog_breeds.py`):** Extracts 631 canine breed records from The Dog API with exponential-backoff retries, structured logging, and explicit BigQuery schema enforcement (`WRITE_TRUNCATE`).
 * **Entity Resolution via `dbt seed` (`breed_aliases.csv`):** Resolves municipal shelter breed shorthand and applies AKC size fallbacks, boosting canine breed match rates from 59.6% to **99.5%**.
 * **Incremental `MERGE` & CI/CD:** Materializes `fct_shelter_stays` incrementally on `stay_id` (updating newly closed open stays) and validates every push via GitHub Actions (`ruff`, `sqlfluff`, and `dbt parse`).
+* **Semantic BI Layer & dbt Exposures (`rpt_shelter_dashboard` / `exposures.yml`):** Exposes a denormalized BigQuery reporting view over the Gold star schema and registers the live Looker Studio dashboard as a downstream dbt exposure to preserve end-to-end lineage and partition-pruned BI performance.
 
 ---
 
@@ -65,11 +86,11 @@ Municipal animal shelter datasets often arrive as wide, flat exports containing 
 
 ## What This Warehouse Answers
 
-Once built in BigQuery, the Gold star schema supports self-serve operational analysis across key shelter metrics:
+Once built in BigQuery, the Gold star schema and reporting layer support self-serve operational analysis across key shelter metrics:
 * **30-Day Return Rates:** Tracking how often adopted animals return within 30 days by species, age group, or intake type.
 * **Length of Stay (LOS) Drivers:** Comparing average and median shelter duration across mixed vs. purebred animals, intake conditions, and outcome categories.
 * **In-Shelter Spay/Neuter Impact:** Measuring how many intact animals are altered during their stay (`was_altered_during_stay`) and how that affects adoption timelines.
-* **Active Shelter Capacity:** Isolating open stays (`is_open_stay = true`) to monitor animals currently in care.
+* **Multi-Visit Recidivism & Unique Population:** Contrasting total stay volume against unique animals served (`animal_id`) to quantify repeat intakes across the shelter's historical timeline.
 
 ---
 

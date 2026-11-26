@@ -1,0 +1,17 @@
+version: 2
+
+exposures:
+  - name: animal_shelter_operations_dashboard
+    label: Animal Shelter Operations & Stay Analytics
+    type: dashboard
+    maturity: high
+    url: https://google.com
+    description: >
+      Interactive Looker Studio executive dashboard tracking shelter intake volume,
+      unique animals served, median length of stay, 30-day return rates, and in-shelter
+      spay/neuter conversions.
+    depends_on:
+      - ref('rpt_shelter_dashboard')
+    owner:
+      name: Lana Voynich
+      email: lvoynich@mac.com
