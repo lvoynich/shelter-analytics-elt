@@ -106,7 +106,6 @@ Once built in BigQuery, the Gold star schema and reporting layer support self-se
 ```text
 shelter-analytics-elt/
 ├── .dockerignore                      # Excludes credentials, .venv, and local dbt artifacts from image
-
 ├── .github/
 │   └── workflows/
 │       └── ci.yml                     # Automated Ruff, SQLFluff, and dbt parse CI pipeline
@@ -115,7 +114,6 @@ shelter-analytics-elt/
 │   ├── lineage_dag.png                # dbt model lineage DAG
 │   └── prefect_flow_run.png           # Prefect 3 orchestrated flow run graph
 ├── Dockerfile                         # Slim Python 3.11 Linux container definition
-
 ├── flow.py                            # Prefect 3 ELT orchestration pipeline (API ingest + dbt build)
 ├── README.md                          # Project overview, architecture, and setup guide
 ├── requirements.txt                   # Python dependencies (prefect[dbt], dbt-bigquery, google-cloud-bigquery, requests)
