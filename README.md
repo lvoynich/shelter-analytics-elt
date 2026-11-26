@@ -111,6 +111,7 @@ shelter-analytics-elt/
 │       └── ci.yml                     # Automated Ruff, SQLFluff, and dbt parse CI pipeline
 ├── .gitignore                         # Excludes virtual environments, dbt artifacts, and credentials
 ├── assets/
+│   ├── dashboard_preview.png          # Looker Studio executive dashboard screenshot
 │   ├── lineage_dag.png                # dbt model lineage DAG
 │   └── prefect_flow_run.png           # Prefect 3 orchestrated flow run graph
 ├── Dockerfile                         # Slim Python 3.11 Linux container definition
@@ -132,8 +133,12 @@ shelter-analytics-elt/
     │   │   └── int_animal_stays.yml   # Intermediate documentation & accepted_values tests
     │   └── marts/
     │       ├── dim_animals.sql        # Gold animal dimension table (clustered)
+    │       ├── exposures.yml          # Downstream Looker Studio BI dashboard exposure
     │       ├── fct_shelter_stays.sql  # Gold shelter stay fact table (partitioned & clustered)
     │       └── marts.yml              # Star schema documentation & foreign-key relationship tests
+    │       └── rpt_shelter_dashboard.sql # Denormalized BigQuery reporting view for BI
+    ├── seeds/
+    │   └── breed_aliases.csv          # Municipal breed shorthand & AKC size crosswalk
     └── tests/
         ├── assert_outcome_after_intake.sql
         ├── chk_age.sql
@@ -142,7 +147,7 @@ shelter-analytics-elt/
 
 ---
 
-### Custom Singular Tests (`shelter_warehouse/tests/`)
+## Custom Singular Tests (`shelter_warehouse/tests/`)
 * **`chk_biology.sql`:** Uses `LAG()` window functions partitioned by `animal_id` to verify biological consistency across repeat visits, confirming zero animals reverted from `Altered` back to `Intact`.
 * **`chk_age.sql`:** Monitors stays where outcome age is lower than intake age (`severity = 'warn'`), isolating bulk litter age-estimation adjustments.
 * **`assert_outcome_after_intake.sql`:** Enforces chronological integrity by verifying no closed stay has an outcome timestamp prior to intake.
@@ -155,9 +160,10 @@ shelter-analytics-elt/
 * **Containerization:** Docker (`python:3.11-slim` Linux runtime)
 * **Data Warehouse:** Google BigQuery
 * **Transformation & Testing:** dbt Core (`dbt-bigquery`)
+* **BI & Visualization:** Looker Studio
 * **Languages:** Python, SQL (GoogleSQL), YAML, Jinja
 * **CI/CD & Tooling:** GitHub Actions, Ruff, SQLFluff, Google Cloud CLI, Git/GitHub
-* **Local Development:** macOS, VS Code, Python `.venv`, Google Cloud CLI, Git/GitHub
+* **Local Development:** macOS, VS Code, Python `.venv`
 
 ---
 
@@ -165,7 +171,7 @@ shelter-analytics-elt/
 
 1. **Clone the repository and activate a virtual environment:**
    ```bash
-   git clone https://github.com
+   git clone [https://github.com](https://github.com/lvoynich/shelter-analytics-elt)
    cd shelter-analytics-elt
    python3 -m venv .venv
    source .venv/bin/activate
